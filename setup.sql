@@ -1,0 +1,69 @@
+-- Run this complete script in Supabase SQL Editor.
+create extension if not exists pgcrypto;
+
+create table if not exists public.products (
+ id uuid primary key default gen_random_uuid(),
+ name text not null,
+ category text not null default 'Other',
+ price text not null default '',
+ description text not null default '',
+ image_url text not null default '',
+ retailer text not null default 'Amazon',
+ product_url text not null,
+ created_at timestamptz not null default now(),
+ updated_at timestamptz not null default now()
+);
+
+alter table public.products enable row level security;
+
+drop policy if exists "Anyone can view products" on public.products;
+create policy "Anyone can view products" on public.products
+ for select to anon, authenticated using (true);
+
+drop policy if exists "Admin can insert products" on public.products;
+create policy "Admin can insert products" on public.products
+ for insert to authenticated
+ with check ((auth.jwt() ->> 'email') = 'vv0303747@gmail.com');
+
+drop policy if exists "Admin can update products" on public.products;
+create policy "Admin can update products" on public.products
+ for update to authenticated
+ using ((auth.jwt() ->> 'email') = 'vv0303747@gmail.com')
+ with check ((auth.jwt() ->> 'email') = 'vv0303747@gmail.com');
+
+drop policy if exists "Admin can delete products" on public.products;
+create policy "Admin can delete products" on public.products
+ for delete to authenticated
+ using ((auth.jwt() ->> 'email') = 'vv0303747@gmail.com');
+
+insert into storage.buckets (id, name, public)
+values ('product-images', 'product-images', true)
+on conflict (id) do update set public = true;
+
+drop policy if exists "Public can view product images" on storage.objects;
+create policy "Public can view product images" on storage.objects
+ for select to anon, authenticated using (bucket_id = 'product-images');
+
+drop policy if exists "Admin can upload product images" on storage.objects;
+create policy "Admin can upload product images" on storage.objects
+ for insert to authenticated with check (
+  bucket_id = 'product-images'
+  and (auth.jwt() ->> 'email') = 'vv0303747@gmail.com'
+ );
+
+drop policy if exists "Admin can update product images" on storage.objects;
+create policy "Admin can update product images" on storage.objects
+ for update to authenticated using (
+  bucket_id = 'product-images'
+  and (auth.jwt() ->> 'email') = 'vv0303747@gmail.com'
+ ) with check (
+  bucket_id = 'product-images'
+  and (auth.jwt() ->> 'email') = 'vv0303747@gmail.com'
+ );
+
+drop policy if exists "Admin can delete product images" on storage.objects;
+create policy "Admin can delete product images" on storage.objects
+ for delete to authenticated using (
+  bucket_id = 'product-images'
+  and (auth.jwt() ->> 'email') = 'vv0303747@gmail.com'
+ );
